@@ -1,0 +1,7 @@
+<Project>
+
+  <PropertyGroup>
+    <RootNamespace>CSharp.Playground.$(MSBuildProjectName)</RootNamespace>
+  </PropertyGroup>
+
+</Project>
