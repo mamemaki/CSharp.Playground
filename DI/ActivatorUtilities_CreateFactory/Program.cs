@@ -19,35 +19,32 @@ public class CreateFactoryBench
     private readonly Stopwatch sw = Stopwatch.StartNew();
 
     [Params(1, 1000, 5000)]
-    public int CreateInstanceCount { get; set; }
+    public int CreateCount { get; set; }
 
-    void Run(Func<ServiceProvider, int, string, ClassA> createInstance)
+    ServiceProvider CreateServices()
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(sw);
-        var serviceProvider = services.BuildServiceProvider();
+        return services.BuildServiceProvider();
+    }
 
-        var instances = new List<ClassA>();
-        for (var i = 0; i < CreateInstanceCount; i++)
+    void Run(ServiceProvider sp, Func<ServiceProvider, int, string, ClassA> createInstance)
+    {
+        for (var i = 0; i < CreateCount; i++)
         {
-            var instance = createInstance(serviceProvider, i+1, "Hi!");
-            instances.Add(instance);
-        }
-
-        foreach (var item in instances)
-        {
-            item.Print();
+            var _ = createInstance(sp, i+1, "Hi!");
         }
     }
 
     [Benchmark]
     public void UseNew()
     {
-        Run((sp, no, message) =>
+        var sp = CreateServices();
+        var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger<ClassA>();
+        var sw = sp.GetRequiredService<Stopwatch>();
+        Run(sp, (sp, no, message) =>
         {
-            var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger<ClassA>();
-            var sw = sp.GetRequiredService<Stopwatch>();
             return new ClassA(logger, message, sw, no);
         });
     }
@@ -55,14 +52,16 @@ public class CreateFactoryBench
     [Benchmark(Baseline = true)]
     public void UseCreateInstance()
     {
-        Run((sp, no, message) => ActivatorUtilities.CreateInstance<ClassA>(sp, message, no));
+        var sp = CreateServices();
+        Run(sp, (sp, no, message) => ActivatorUtilities.CreateInstance<ClassA>(sp, message, no));
     }
 
     [Benchmark]
     public void UseCreateFactory()
     {
         var createInstance = ActivatorUtilities.CreateFactory<ClassA>([typeof(int), typeof(string)]);
-        Run((sp, no, message) => createInstance(sp, [no, message]));
+        var sp = CreateServices();
+        Run(sp, (sp, no, message) => createInstance(sp, [no, message]));
     }
 }
 
